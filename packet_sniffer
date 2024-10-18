@@ -1,0 +1,46 @@
+# packet_sniffer
+
+from scapy.all import *
+import logging
+
+# Configure logging
+logging.basicConfig(filename='packet_sniffer.log', level=logging.INFO, format='%(asctime)s - %(message)s')
+
+# Store ARP entries for detection
+arp_table = {}
+
+def detect_arp_spoof(packet):
+    """Detect ARP spoofing by comparing MAC addresses for IP addresses."""
+    if packet[ARP].op == 2:  # ARP reply
+        try:
+            ip = packet[ARP].psrc
+            mac = packet[ARP].hwsrc
+
+            # Check if the IP already exists in the ARP table
+            if ip in arp_table:
+                if arp_table[ip] != mac:  # MAC address mismatch
+                    logging.warning(f"ARP Spoofing Detected! IP: {ip}, MAC: {mac}")
+                    print(f"[WARNING] ARP Spoofing Detected! IP: {ip}, MAC: {mac}")
+            else:
+                arp_table[ip] = mac  # Add new IP-MAC pair
+
+        except IndexError:
+            pass
+
+def packet_handler(packet):
+    """Handle captured packets."""
+    if ARP in packet:
+        detect_arp_spoof(packet)
+
+def start_sniffer(interface):
+    """Start packet sniffer on the specified interface."""
+    print(f"Starting packet sniffer on {interface}...")
+    try:
+        sniff(iface=interface, prn=packet_handler, store=0)
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == '__main__':
+    # Specify the network interface (e.g., 'eth0', 'wlan0')
+    network_interface = input("Enter the network interface to sniff: ")
+    start_sniffer(network_interface)
